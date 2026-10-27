@@ -3,6 +3,8 @@
 面向 **Windows 11 x64** 的中文免安装桌面工具。候选列表来自
 [publicdnsserver.com](https://publicdnsserver.com/)，排名由用户本机重新测量。
 
+![DNS Scout 界面](docs/preview.png)
+
 ## 下载和使用
 
 在 [Releases](https://github.com/Freecode100Year/dns-scout/releases/latest) 下载

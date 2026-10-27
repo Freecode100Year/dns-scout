@@ -1,8 +1,11 @@
 $ErrorActionPreference = 'Stop'
 $p = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payload)) | ConvertFrom-Json
 try {
-    $adapter = Get-NetAdapter -InterfaceIndex $p.index
-    $guid = $adapter.InterfaceGuid.ToString()
+    $guid = ([guid]$p.guid).ToString('D')
+    $matchesByGuid = @(Get-NetAdapter | Where-Object { ([guid]$_.InterfaceGuid).ToString('D') -eq $guid })
+    if ($matchesByGuid.Count -ne 1) {throw '目标网卡已变化，请刷新后重试'}
+    $adapter = $matchesByGuid[0]
+    $p.index = $adapter.ifIndex
     $folder = Join-Path $env:LOCALAPPDATA 'DNSScout\backups'
     New-Item -ItemType Directory -Force $folder | Out-Null
     $backup = Join-Path $folder ($guid + '.json')
@@ -11,7 +14,9 @@ try {
         foreach ($family in @('IPv4','IPv6')) {
             $service = if ($family -eq 'IPv4') {'Tcpip'} else {'Tcpip6'}
             $key = "HKLM:\SYSTEM\CurrentControlSet\Services\$service\Parameters\Interfaces\{$guid}"
-            $static = (Get-ItemProperty -Path $key -Name NameServer -ErrorAction SilentlyContinue).NameServer
+            if (-not (Test-Path -Path $key -ErrorAction Stop)) {throw '无法读取网卡原始 DNS 模式，已停止修改'}
+            $properties = Get-ItemProperty -Path $key -ErrorAction Stop
+            $static = $properties.NameServer
             $addresses = @((Get-DnsClientServerAddress -InterfaceIndex $p.index -AddressFamily $family).ServerAddresses)
             $states += @{family=$family; automatic=[string]::IsNullOrWhiteSpace($static); addresses=$addresses}
         }

@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import uuid
 
 def powershell(script):
     if sys.platform != 'win32': raise OSError('网卡配置仅支持 Windows')
@@ -29,8 +30,9 @@ def validate_request(action, index, ips):
     if any(not ipaddress.ip_address(ip).is_global for ip in parsed): raise ValueError('请选择公网 DNS 地址')
     return {'action': action, 'index': index, 'ips': parsed}
 
-def configure(action, index, ips):
+def configure(action, index, ips, guid):
     payload = validate_request(action, index, ips)
+    payload['guid'] = str(uuid.UUID(guid.strip('{}')))
     with tempfile.TemporaryDirectory(prefix='dns-scout-') as temp:
         status = str(Path(temp) / 'status.json')
         payload['status'] = status

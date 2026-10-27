@@ -30,7 +30,9 @@ def parse_servers(html):
         except ValueError: continue
         country = cells[2].find('a')
         ip = str(address)
-        result[ip] = Server(ip, country.get_text(strip=True) if country else '未知', ' '.join(parts[1:]))
+        location = list(cells[2].stripped_strings)
+        country_name = country.get_text(strip=True) if country else (location[-1] if location else '未知')
+        result[ip] = Server(ip, country_name, ' '.join(parts[1:]))
     if not result: raise ValueError('网站没有返回可识别的 DNS 列表，请稍后重试或添加自定义 IP。')
     return list(result.values())
 

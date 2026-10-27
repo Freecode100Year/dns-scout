@@ -128,7 +128,7 @@ class App:
                     self.render()
                 elif kind == 'status': self.status.set(data)
                 elif kind == 'adapters':
-                    self.adapter_map = {f'{a["Name"]} (#{a["ifIndex"]})': a['ifIndex'] for a in data}
+                    self.adapter_map = {f'{a["Name"]} (#{a["ifIndex"]})': a for a in data}
                     self.adapter_box['values'] = list(self.adapter_map)
                     self.adapter.set(next(iter(self.adapter_map), ''))
                 elif kind == 'error':
@@ -230,10 +230,11 @@ class App:
         self.background(lambda: self.events.put(('adapters', windows.adapters())))
 
     def change(self, action):
-        index = self.adapter_map.get(self.adapter.get())
-        if not index:
+        adapter = self.adapter_map.get(self.adapter.get())
+        if not adapter:
             messagebox.showinfo('选择网卡', '请先刷新并选择要操作的网卡')
             return
+        index = adapter['ifIndex']
         ips = self.selected_ips() if action == 'apply' else []
         try: windows.validate_request(action, index, ips)
         except ValueError as exc:
@@ -241,7 +242,7 @@ class App:
             return
         text = ('将设置 DNS：' + ', '.join(ips) + '\n首次修改前会备份该网卡的原配置。') if action == 'apply' else '将恢复这张网卡首次修改前的 IPv4 / IPv6 DNS 配置。'
         if not messagebox.askyesno('确认网卡配置', f'网卡：{self.adapter.get()}\n{text}\n需要接受 Windows 管理员授权。是否继续？'): return
-        self.background(lambda: self.events.put(('status', windows.configure(action, index, ips))))
+        self.background(lambda: self.events.put(('status', windows.configure(action, index, ips, adapter['InterfaceGuid']))))
 
     def close(self):
         self.cancel.set()

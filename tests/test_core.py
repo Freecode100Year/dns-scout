@@ -13,6 +13,10 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].country, 'Australia')
         self.assertEqual(items[0].ip, '1.1.1.1')
+    def test_country_page_uses_city_then_plain_country(self):
+        html = '<table><tr><td>1</td><td><span>223.5.5.5</span><br>Alibaba</td><td><span>Hangzhou</span><br><span>China</span></td><td>100%</td></tr></table>'
+        self.assertEqual(parse_servers(html)[0].country, 'China')
+
     def test_bad_source_is_not_silent(self):
         with self.assertRaises(ValueError): parse_servers('<html>blocked</html>')
     def test_rank_prioritizes_reliability(self):
