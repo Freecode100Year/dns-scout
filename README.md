@@ -7,7 +7,7 @@
 
 ## 下载和使用
 
-在 [Releases](https://github.com/Freecode100Year/dns-scout/releases/latest) 下载
+在 [Releases](https://github.com/Freecode100Year/dns-scout/releases) 下载
 DNSScout.exe，双击运行，无需安装 Python。
 
 1. 选择地区，点击「获取列表」，也可添加自定义公网 IPv4 / IPv6 地址。
@@ -55,8 +55,11 @@ Windows 打包：
     python -m pip install pyinstaller==6.19.0
     python -m PyInstaller --noconfirm --clean --onefile --windowed --name DNSScout --add-data "scout/configure.ps1;scout" main.py
 
-Actions 在 Windows x64 测试、校验 PowerShell 语法、打包并冒烟测试 EXE 界面。
-v* 标签触发发行版。托管 CI 不修改真实网卡，Windows 11 实机 UAC/网卡修改恢复仍需验收。
+Windows 用户也可运行 scripts/build-windows.ps1，一次完成测试、打包、冒烟检查和 SHA256。
+GitHub Actions 模板见 docs/windows-build.yml。当前 GitHub 凭据缺少 workflow 权限，
+自动构建尚未启用；授权后可将模板放到 .github/workflows/build.yml。
+当前发布构建的环境与实际验证记录见 docs/TESTING.md。
+Windows 11 实机 UAC/网卡修改恢复仍需验收。
 配置使用 [微软 DNSClient cmdlet](https://learn.microsoft.com/en-us/powershell/module/dnsclient/set-dnsclientserveraddress?view=win10-ps)；
 打包使用 [PyInstaller](https://pyinstaller.org/en/stable/usage.html)。
 
