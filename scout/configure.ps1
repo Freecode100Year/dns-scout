@@ -26,11 +26,14 @@ try {
         if (-not (Test-Path $backup)) {
             @{guid=$guid; name=$adapter.Name; states=@(Read-State)} | ConvertTo-Json -Depth 6 | Set-Content -Encoding UTF8 $backup
         }
-        $family = if ($p.ips[0].Contains(':')) {'IPv6'} else {'IPv4'}
-        $target = Get-DnsClientServerAddress -InterfaceIndex $p.index -AddressFamily $family
-        $target | Set-DnsClientServerAddress -ServerAddresses @($p.ips)
-        $actual = @((Get-DnsClientServerAddress -InterfaceIndex $p.index -AddressFamily $family).ServerAddresses)
-        if (($actual -join ',') -ne ($p.ips -join ',')) {throw '写入后校验失败，原配置备份已保留，请恢复'}
+        foreach ($family in @('IPv4','IPv6')) {
+            $requested = @($p.ips | Where-Object { ($_.Contains(':')) -eq ($family -eq 'IPv6') })
+            if ($requested.Count -eq 0) {continue}
+            $target = Get-DnsClientServerAddress -InterfaceIndex $p.index -AddressFamily $family
+            $target | Set-DnsClientServerAddress -ServerAddresses $requested
+            $actual = @((Get-DnsClientServerAddress -InterfaceIndex $p.index -AddressFamily $family).ServerAddresses)
+            if (($actual -join ',') -ne ($requested -join ',')) {throw "$family 写入后校验失败，原配置备份已保留，请恢复"}
+        }
         $message = "DNS 已设置并校验。原配置备份：$backup"
     } else {
         if (-not (Test-Path $backup)) {throw '这张网卡没有原配置备份'}

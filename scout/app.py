@@ -75,6 +75,17 @@ class App:
         self.table.configure(yscrollcommand=scroll.set)
         self.table.pack(side='left', fill='both', expand=True)
         scroll.pack(side='right', fill='y')
+        self.dns_fields = [tk.StringVar() for _ in range(4)]
+        dns_frame = ttk.Frame(outer)
+        dns_frame.pack(fill='x', pady=(10, 0))
+        for row_index, family in enumerate(('IPv4', 'IPv6')):
+            for column, role in enumerate(('首选 DNS', '备用 DNS')):
+                ttk.Label(dns_frame, text=f'{family} {role}').grid(row=row_index, column=column * 2, padx=(0, 8), pady=3)
+                entry = ttk.Entry(dns_frame, textvariable=self.dns_fields[row_index * 2 + column], width=30)
+                entry.grid(row=row_index, column=column * 2 + 1, sticky='ew', padx=(0, 16), pady=3)
+                self.controls.append(entry)
+        dns_frame.columnconfigure(1, weight=1)
+        dns_frame.columnconfigure(3, weight=1)
         action = ttk.Frame(outer)
         action.pack(fill='x', pady=12)
         self.button(action, '复制选中 IP', self.copy)
@@ -84,9 +95,10 @@ class App:
         self.adapter_box = ttk.Combobox(action, textvariable=self.adapter, state='readonly', width=18)
         self.adapter_box.pack(side='left')
         self.button(action, '刷新', self.load_adapters)
-        self.button(action, '设置选中 DNS', lambda: self.change('apply'))
+        self.button(action, '填入选中 DNS', self.fill_dns)
+        self.button(action, '应用 DNS', lambda: self.change('apply'))
         self.button(action, '恢复原配置', lambda: self.change('restore'))
-        ttk.Label(outer, text='排序：成功率优先 → 中位延迟 → 波动。Ctrl 多选两个同协议 DNS；设置顺序按排名。', wraplength=1000).pack(anchor='w')
+        ttk.Label(outer, text='排序：成功率优先 → 中位延迟 → 波动。选中结果后填入对应协议的首选/备用；可手动修改。备用可留空，整组留空则保持原配置。', wraplength=1000).pack(anchor='w')
         ttk.Label(outer, text='数据来源 publicdnsserver.com · 本机 UDP/TCP DNS 查询 · 响应有效不代表无污染或隐私可信', foreground='#64748b').pack(anchor='w', pady=(5,0))
         root.after(100, self.poll)
         root.protocol('WM_DELETE_WINDOW', self.close)
@@ -229,18 +241,31 @@ class App:
     def load_adapters(self):
         self.background(lambda: self.events.put(('adapters', windows.adapters())))
 
+    def fill_dns(self):
+        groups = {4: [], 6: []}
+        for ip in self.selected_ips():
+            groups[ipaddress.ip_address(ip).version].append(ip)
+        if not any(groups.values()) or any(len(values) > 2 for values in groups.values()):
+            messagebox.showerror('选择 DNS', '请选中 DNS，每种协议最多两个')
+            return
+        for family, offset in ((4, 0), (6, 2)):
+            if groups[family]:
+                for position in range(2):
+                    self.dns_fields[offset + position].set(groups[family][position] if position < len(groups[family]) else '')
+
     def change(self, action):
         adapter = self.adapter_map.get(self.adapter.get())
         if not adapter:
             messagebox.showinfo('选择网卡', '请先刷新并选择要操作的网卡')
             return
         index = adapter['ifIndex']
-        ips = self.selected_ips() if action == 'apply' else []
-        try: windows.validate_request(action, index, ips)
+        try:
+            ips = windows.dns_slots(*(field.get() for field in self.dns_fields)) if action == 'apply' else []
+            windows.validate_request(action, index, ips)
         except ValueError as exc:
             messagebox.showerror('选择 DNS', str(exc))
             return
-        text = ('将设置 DNS：' + ', '.join(ips) + '\n首次修改前会备份该网卡的原配置。') if action == 'apply' else '将恢复这张网卡首次修改前的 IPv4 / IPv6 DNS 配置。'
+        text = ('将设置 DNS：\n' + '\n'.join(f"IPv{family} {role}：{ip}" for family in (4, 6) for role, ip in zip(('首选', '备用'), [ip for ip in ips if ipaddress.ip_address(ip).version == family])) + '\n未填写的协议保持原配置。首次修改前会备份该网卡的原配置。') if action == 'apply' else '将恢复这张网卡首次修改前的 IPv4 / IPv6 DNS 配置。'
         if not messagebox.askyesno('确认网卡配置', f'网卡：{self.adapter.get()}\n{text}\n需要接受 Windows 管理员授权。是否继续？'): return
         self.background(lambda: self.events.put(('status', windows.configure(action, index, ips, adapter['InterfaceGuid']))))
 

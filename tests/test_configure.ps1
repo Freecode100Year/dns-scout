@@ -60,7 +60,12 @@ try {
     $v4 = $backup.states | Where-Object family -eq 'IPv4'
     Assert (-not $v4.automatic) 'Static IPv4 was incorrectly backed up as automatic'
     Assert (($v4.addresses -join ',') -eq '9.9.9.9,149.112.112.112') 'Original DNS addresses lost'
+    $result = Invoke-Config 'apply' @('8.8.8.8','1.1.1.1','2001:4860:4860::8888','2606:4700:4700::1111')
+    Assert $result.ok ('Dual stack apply failed: ' + $result.message)
+    Assert (($script:state.IPv4.addresses -join ',') -eq '8.8.8.8,1.1.1.1') 'IPv4 preferred/alternate order lost'
+    Assert (($script:state.IPv6.addresses -join ',') -eq '2001:4860:4860::8888,2606:4700:4700::1111') 'IPv6 preferred/alternate order lost'
     $result = Invoke-Config 'apply' @('8.8.4.4')
+    Assert (($script:state.IPv6.addresses -join ',') -eq '2001:4860:4860::8888,2606:4700:4700::1111') 'Omitted IPv6 changed'
     Assert $result.ok 'Repeated apply failed'
     $backup = Get-Content -Raw $backupPath | ConvertFrom-Json
     Assert ((($backup.states | Where-Object family -eq 'IPv4').addresses -join ',') -eq '9.9.9.9,149.112.112.112') 'Repeated apply overwrote initial backup'

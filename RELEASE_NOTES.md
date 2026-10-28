@@ -1,15 +1,13 @@
-DNS Scout 首个中文 Windows 11 x64 便携预览版，无需安装 Python。
+DNS Scout v0.1.0 Preview 2 · Windows x64 便携版
 
-功能：
-- publicdnsserver.com 地区候选列表、离线缓存、自定义 IPv4/IPv6。
-- 本机 DNS 查询，按成功率、中位延迟与波动排序；停止、复制、CSV。
-- 指定网卡后通过 UAC 设置 DNS，保存原配置，支持静态/自动模式恢复与校验。
+- 新增 IPv4 和 IPv6 各自的首选 DNS、备用 DNS 输入框，支持手动填写和从测速结果填入。
+- 一次应用两种协议，分别校验主备顺序；未填写的协议保持原配置。
+- 校验仅填写备用、重复 DNS、地址协议不匹配等输入，保留首次备份与恢复功能。
 
-下载 DNSScout.exe 即可运行，或下载 ZIP；SHA256SUMS.txt 可核对完整性。
+下载 DNSScout.exe 即可运行，无需安装 Python；SHA256SUMS.txt 可核对完整性。
 
-验证：Linux 和 Windows Python（Wine）各 12 项测试通过，PowerShell 配置隔离回归通过，
-EXE 打包及打包后界面启动冒烟测试通过。BUILD_LOG.txt 提供构建记录。
+验证：Linux 与 Windows Python（Wine）各 16 项测试通过，PowerShell 配置隔离回归通过。
+构建日志随发布提供。
 
-限制：本版由 Windows Python 在 Wine 中构建；真正 Windows 11 上的 UAC/网卡修改恢复
-尚待实机验收。程序未签名。GitHub 自动构建仍需 workflow 授权。
-完整测试记录见仓库 docs/TESTING.md。
+本版由 Windows Python 3.12 + PyInstaller 在 Wine 中构建；真正 Windows 11 上的
+UAC/网卡修改恢复尚待实机验收。程序未签名。

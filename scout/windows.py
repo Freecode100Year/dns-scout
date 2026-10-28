@@ -25,10 +25,29 @@ def validate_request(action, index, ips):
     index = int(index)
     if index < 1: raise ValueError('无效网卡')
     parsed = [str(ipaddress.ip_address(ip)) for ip in ips]
-    if action == 'apply' and (not 1 <= len(parsed) <= 2 or len({ipaddress.ip_address(ip).version for ip in parsed}) != 1):
-        raise ValueError('请选择 1–2 个同为 IPv4 或同为 IPv6 的 DNS')
+    if action == 'apply':
+        if not parsed or any(sum(ipaddress.ip_address(ip).version == family for ip in parsed) > 2 for family in (4, 6)):
+            raise ValueError('每种协议请选择 1–2 个 DNS，至少填写一种协议')
+        if len(set(parsed)) != len(parsed):
+            raise ValueError('首选与备用 DNS 不能相同')
     if any(not ipaddress.ip_address(ip).is_global for ip in parsed): raise ValueError('请选择公网 DNS 地址')
     return {'action': action, 'index': index, 'ips': parsed}
+
+def dns_slots(ipv4_preferred, ipv4_alternate, ipv6_preferred, ipv6_alternate):
+    """Return normalized addresses in explicit preferred/alternate order."""
+    addresses = []
+    for family, pair in ((4, (ipv4_preferred, ipv4_alternate)),
+                         (6, (ipv6_preferred, ipv6_alternate))):
+        preferred, alternate = (value.strip() for value in pair)
+        if alternate and not preferred:
+            raise ValueError(f'IPv{family} 备用 DNS 需要先填写首选 DNS')
+        for value in (preferred, alternate):
+            if value:
+                address = ipaddress.ip_address(value)
+                if address.version != family:
+                    raise ValueError(f'IPv{family} 输入框中只能填写 IPv{family} 地址')
+                addresses.append(str(address))
+    return validate_request('apply', 1, addresses)['ips']
 
 def configure(action, index, ips, guid):
     payload = validate_request(action, index, ips)
