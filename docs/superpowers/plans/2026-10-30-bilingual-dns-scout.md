@@ -40,10 +40,10 @@
 - `load_language` returns a supported locale; missing/corrupt settings use system language, then `zh-CN`.
 - `REGIONS` maps stable region IDs to existing `scout.source.PAGES` keys; each ID has Chinese and English display labels.
 
-- [ ] **Step 1: Write failing localization tests** for region parity/source mapping, locale fallback, settings round-trip/corrupt JSON, and formatted message lookup.
-- [ ] **Step 2: Run** `python -m unittest tests.test_i18n -v`; confirm failures identify missing localization behavior.
-- [ ] **Step 3: Implement** the immutable Chinese/English catalogs, locale normalization, JSON persistence, and region-label mapping in `scout/i18n.py`.
-- [ ] **Step 4: Run** `python -m unittest tests.test_i18n -v`; confirm all localization tests pass.
+- [x] **Step 1: Write failing localization tests** for region parity/source mapping, locale fallback, settings round-trip/corrupt JSON, and formatted message lookup.
+- [x] **Step 2: Run** `python -m unittest tests.test_i18n -v`; confirm failures identify missing localization behavior.
+- [x] **Step 3: Implement** the immutable Chinese/English catalogs, locale normalization, JSON persistence, and region-label mapping in `scout/i18n.py`.
+- [x] **Step 4: Run** `python -m unittest tests.test_i18n -v`; confirm all localization tests pass (9 tests).
 
 ### Task 2: Live language switching throughout the Tkinter UI
 
@@ -58,10 +58,10 @@
 - The selector displays the supported language names. Changing it persists the selection and refreshes widget labels and table headings without clearing user state.
 - `fetch_servers(region, cache_dir)` returns `(servers, FetchSummary)` where `FetchSummary` contains a stable mode (`live` or `cache`), source URL, cache age, and optional fetch error; the UI formats it through the active catalog.
 
-- [ ] **Step 1: Add a failing UI regression test** that switches zh-CN → en → zh-CN and checks translated headings/buttons while input values, selected region ID, DNS fields, selection, and result rows remain intact.
-- [ ] **Step 2: Run** `python -m unittest tests.test_ui -v`; confirm the new test fails because the selector/in-place update is absent.
-- [ ] **Step 3: Implement** a language-neutral `FetchSummary` in `scout/source.py`, with tests proving region selection retains existing URL/cache behavior. Localize the window title, labels, controls, fetch/progress/result statuses, validation and confirmation dialogs, backend errors, and Treeview headings. Keep stable region IDs separate from translated labels and localize CSV headings from the active language.
-- [ ] **Step 4: Run** `python -m unittest tests.test_ui -v`; confirm switching preserves application state.
+- [x] **Step 1: Add a failing UI regression test** that switches zh-CN → en → zh-CN and checks translated headings/buttons while input values, selected region ID, DNS fields, selection, and result rows remain intact.
+- [x] **Step 2: Run** `python -m unittest tests.test_ui -v`; confirm the new test fails because the selector/in-place update is absent.
+- [x] **Step 3: Implement** a language-neutral `FetchSummary` in `scout/source.py`, with tests proving region selection retains existing URL/cache behavior. Localize the window title, labels, controls, fetch/progress/result statuses, validation and confirmation dialogs, backend errors, and Treeview headings. Keep stable region IDs separate from translated labels and localize CSV headings from the active language.
+- [x] **Step 4: Run** `python -m unittest tests.test_ui tests.test_core -v`; all 14 tests pass, including language preservation, region mappings, and CSV headings.
 
 ### Task 3: Documentation and preview release metadata
 

@@ -24,6 +24,7 @@ REGIONS = {
 
 MESSAGES = {
     'zh-CN': {
+        'app_name': 'DNS Scout',
         'app_title': 'DNS Scout · DNS 优选',
         'subtitle': '从你的网络出发，找到响应更快、更稳定的 DNS。',
         'language': '语言',
@@ -31,6 +32,8 @@ MESSAGES = {
         'fetch': '获取列表',
         'add_ip': '添加 IP',
         'protocol': '协议',
+        'preferred': '首选',
+        'alternate': '备用',
         'ipv4': 'IPv4',
         'ipv6': 'IPv6',
         'all': '全部',
@@ -71,6 +74,7 @@ MESSAGES = {
         'add_dialog_prompt': '输入 IPv4 / IPv6 地址，多个地址用逗号或空格分隔：',
         'invalid_address': '无效地址',
         'public_ip_only': '只接受公网 IP',
+        'wrong_address_family': 'IPv{family} 输入框中只能填写 IPv{family} 地址',
         'waiting_measurement': '{count} 个候选，等待测速',
         'pending': '待测',
         'invalid_rounds': '轮数必须为 1–5（当前为 {value}）',
@@ -108,8 +112,26 @@ MESSAGES = {
         'static_dns_restore_failed': '静态 DNS 恢复校验失败，备份已保留',
         'dns_restored': '原 DNS 配置已恢复并校验',
         'language_save_failed': '无法保存语言偏好：{detail}',
+        'error_detail': '操作失败：{detail}',
+        'literal_status': '{text}',
+        'invalid_dns_answer': '响应没有有效 A 记录',
+        'cancelled': '已取消',
+        'list_response_too_large': '列表响应过大',
+        'unrecognized_dns_list': '网站没有返回可识别的 DNS 列表，请稍后重试或添加自定义 IP。',
+        'custom': '自定义',
+        'unknown': '未知',
+        'csv_ip': 'DNS',
+        'csv_region': '地区',
+        'csv_provider': '运营商',
+        'csv_successes': '成功次数',
+        'csv_attempts': '请求次数',
+        'csv_rate': '成功率',
+        'csv_median': '中位延迟ms',
+        'csv_jitter': '波动ms',
+        'csv_error': '最近错误',
     },
     'en': {
+        'app_name': 'DNS Scout',
         'app_title': 'DNS Scout · DNS Optimizer',
         'subtitle': 'Find faster, more reliable DNS servers from your network.',
         'language': 'Language',
@@ -117,6 +139,8 @@ MESSAGES = {
         'fetch': 'Get list',
         'add_ip': 'Add IP',
         'protocol': 'Protocol',
+        'preferred': 'Preferred',
+        'alternate': 'Alternate',
         'ipv4': 'IPv4',
         'ipv6': 'IPv6',
         'all': 'All',
@@ -157,6 +181,7 @@ MESSAGES = {
         'add_dialog_prompt': 'Enter IPv4 / IPv6 addresses, separated by commas or spaces:',
         'invalid_address': 'Invalid address',
         'public_ip_only': 'Only public IP addresses are accepted',
+        'wrong_address_family': 'IPv{family} fields accept IPv{family} addresses only',
         'waiting_measurement': '{count} candidates, ready to test',
         'pending': 'Pending',
         'invalid_rounds': 'Rounds must be 1–5 (got {value}).',
@@ -194,6 +219,23 @@ MESSAGES = {
         'static_dns_restore_failed': 'Static DNS restore verification failed; the backup was kept.',
         'dns_restored': 'Original DNS settings restored and verified',
         'language_save_failed': 'Could not save language preference: {detail}',
+        'error_detail': 'Operation failed: {detail}',
+        'literal_status': '{text}',
+        'invalid_dns_answer': 'The DNS response did not contain a valid A record',
+        'cancelled': 'Cancelled',
+        'list_response_too_large': 'The candidate list response was too large',
+        'unrecognized_dns_list': 'The website returned no recognizable DNS candidates. Try again later or add a public IP.',
+        'custom': 'Custom',
+        'unknown': 'Unknown',
+        'csv_ip': 'DNS address',
+        'csv_region': 'Region',
+        'csv_provider': 'Provider',
+        'csv_successes': 'Successful queries',
+        'csv_attempts': 'Queries',
+        'csv_rate': 'Success rate',
+        'csv_median': 'Median latency (ms)',
+        'csv_jitter': 'Jitter (ms)',
+        'csv_error': 'Latest error',
     },
 }
 
@@ -256,6 +298,52 @@ def region_labels(language):
 def format_message(language, key, **values):
     language = resolve_language(language, None)
     return MESSAGES[language][key].format(**values)
+
+
+def localize_error(language, error):
+    """Translate known application/PowerShell errors; preserve unknown diagnostics."""
+    text = str(error)
+    exact = {
+        '只接受公网 IP': 'public_ip_only',
+        '无效操作': 'invalid_operation',
+        '无效网卡': 'invalid_adapter',
+        '每种协议请选择 1–2 个 DNS，至少填写一种协议': 'dns_count_error',
+        '首选与备用 DNS 不能相同': 'duplicate_dns',
+        '请选择公网 DNS 地址': 'select_public_dns',
+        '网卡配置仅支持 Windows': 'wrong_platform',
+        '配置失败或 UAC 已取消': 'setup_failed',
+        '目标网卡已变化，请刷新后重试': 'target_adapter_changed',
+        '无法读取网卡原始 DNS 模式，已停止修改': 'cannot_read_dns_mode',
+        '这张网卡没有原配置备份': 'no_dns_backup',
+        '备份网卡标识不匹配': 'backup_adapter_mismatch',
+        '自动 DNS 模式恢复校验失败，备份已保留': 'automatic_dns_restore_failed',
+        '静态 DNS 恢复校验失败，备份已保留': 'static_dns_restore_failed',
+        '原 DNS 配置已恢复并校验': 'dns_restored',
+        '响应没有有效 A 记录': 'invalid_dns_answer',
+        '已取消': 'cancelled',
+        '列表响应过大': 'list_response_too_large',
+        '网站没有返回可识别的 DNS 列表，请稍后重试或添加自定义 IP。': 'unrecognized_dns_list',
+    }
+    if text in exact:
+        return format_message(language, exact[text])
+    for family in (4, 6):
+        prefix = f'IPv{family} 备用 DNS 需要先填写首选 DNS'
+        if text == prefix:
+            return format_message(language, 'alternate_requires_preferred', family=family)
+        prefix = f'IPv{family} 输入框中只能填写 IPv{family} 地址'
+        if text == prefix:
+            return format_message(language, 'wrong_address_family', family=family)
+    prefix = 'DNS 已设置并校验。原配置备份：'
+    if text.startswith(prefix):
+        return format_message(language, 'dns_set_verified', backup=text[len(prefix):])
+    return text
+
+
+def localize_source_text(language, text):
+    language = resolve_language(language, None)
+    generated = {'自定义': 'custom', '未知': 'unknown'}
+    key = generated.get(text)
+    return format_message(language, key) if key else text
 
 
 def settings_path():

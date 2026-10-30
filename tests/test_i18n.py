@@ -1,12 +1,15 @@
 import json
+import string
 import tempfile
 import unittest
 from pathlib import Path
 
 from scout.i18n import (
     REGIONS,
+    MESSAGES,
     format_message,
     load_language,
+    localize_error,
     region_labels,
     resolve_language,
     save_language,
@@ -14,6 +17,14 @@ from scout.i18n import (
 
 
 class LocalizationTests(unittest.TestCase):
+    def test_catalogs_have_matching_keys_and_format_fields(self):
+        self.assertEqual(set(MESSAGES['zh-CN']), set(MESSAGES['en']))
+        formatter = string.Formatter()
+        for key in MESSAGES['zh-CN']:
+            zh_fields = {field for _, field, _, _ in formatter.parse(MESSAGES['zh-CN'][key]) if field}
+            en_fields = {field for _, field, _, _ in formatter.parse(MESSAGES['en'][key]) if field}
+            self.assertEqual(zh_fields, en_fields, key)
+
     def test_saved_language_overrides_system_language(self):
         self.assertEqual(resolve_language('en', 'zh_CN'), 'en')
 
@@ -56,6 +67,11 @@ class LocalizationTests(unittest.TestCase):
         self.assertEqual(format_message('zh-CN', 'candidate_count', count=3), '3 个候选')
         self.assertEqual(format_message('en', 'candidate_count', count=3), '3 candidates')
         self.assertEqual(format_message('en', 'invalid_rounds', value='0'), 'Rounds must be 1–5 (got 0).')
+
+    def test_application_owned_errors_are_localized_but_unknown_diagnostics_survive(self):
+        self.assertEqual(localize_error('en', '响应没有有效 A 记录'), 'The DNS response did not contain a valid A record')
+        self.assertEqual(localize_error('en', '已取消'), 'Cancelled')
+        self.assertEqual(localize_error('en', 'upstream timeout'), 'upstream timeout')
 
 
 if __name__ == '__main__':

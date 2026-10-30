@@ -8,23 +8,31 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog
-from .source import Server, PAGES, fetch_servers
+from .source import Server, fetch_servers
 from .benchmark import measure, rank_key
 from . import windows
+from .i18n import (
+    REGIONS, SUPPORTED_LANGUAGES, detect_system_language, format_message,
+    load_language, localize_error, localize_source_text, region_labels, save_language, settings_path,
+)
 
 class App:
     def __init__(self, root):
         self.root = root
         self.servers, self.results, self.adapter_map = [], [], {}
+        self.preference_path = settings_path()
+        self.language = load_language(self.preference_path, detect_system_language())
+        self.text_widgets = {}
         self.events = queue.Queue()
         self.cancel = threading.Event()
         self.busy = False
         self.cache = Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'DNSScout' / 'cache'
-        root.title('DNS Scout · DNS 优选')
+        root.title(self.t('app_title'))
         root.geometry('1120x760')
         root.minsize(960, 660)
         root.configure(bg='#edf2f8')
-        style = ttk.Style(root)
+        self.style = ttk.Style(root)
+        style = self.style
         style.theme_use('clam')
         style.configure('.', font=('Microsoft YaHei UI', 10))
         style.configure('TFrame', background='#edf2f8')
@@ -36,51 +44,74 @@ class App:
         style.configure('Treeview.Heading', padding=8, font=('Microsoft YaHei UI', 10, 'bold'))
         outer = ttk.Frame(root, padding=24)
         outer.pack(fill='both', expand=True)
-        ttk.Label(outer, text='DNS Scout', style='Title.TLabel').pack(anchor='w')
-        ttk.Label(outer, text='从你的网络出发，找到响应更快、更稳定的 DNS。').pack(anchor='w', pady=(4,16))
+        header = ttk.Frame(outer)
+        header.pack(fill='x')
+        self.label(header, 'app_name', style='Title.TLabel').pack(side='left')
+        self.label(header, 'language').pack(side='right', padx=(8, 4))
+        self.language_var = tk.StringVar(value=SUPPORTED_LANGUAGES[self.language])
+        self.language_box = ttk.Combobox(header, textvariable=self.language_var, values=list(SUPPORTED_LANGUAGES.values()), state='readonly', width=14)
+        self.language_box.pack(side='right')
+        self.language_box.bind('<<ComboboxSelected>>', self.on_language_selected)
+        self.label(outer, 'subtitle').pack(anchor='w', pady=(4,16))
         row = ttk.Frame(outer)
         row.pack(fill='x')
-        self.region = tk.StringVar(value='中国')
-        ttk.Label(row, text='候选地区').pack(side='left')
-        ttk.Combobox(row, textvariable=self.region, values=list(PAGES), state='readonly', width=14).pack(side='left', padx=8)
+        self.region_id = 'global'
+        self.region_labels = region_labels(self.language)
+        self.region = tk.StringVar(value=self.region_labels[self.region_id])
+        self.label(row, 'region').pack(side='left')
+        self.region_box = ttk.Combobox(row, textvariable=self.region, values=list(self.region_labels.values()), state='readonly', width=16)
+        self.region_box.pack(side='left', padx=8)
+        self.region_box.bind('<<ComboboxSelected>>', self.on_region_selected)
         self.controls = []
-        self.button(row, '获取列表', self.fetch)
-        self.button(row, '添加 IP', self.add)
-        ttk.Label(row, text='协议').pack(side='left', padx=(16,4))
-        self.family = tk.StringVar(value='IPv4')
-        ttk.Combobox(row, textvariable=self.family, values=['IPv4','IPv6','全部'], state='readonly', width=7).pack(side='left')
+        self.button(row, 'fetch', self.fetch)
+        self.button(row, 'add_ip', self.add)
+        self.label(row, 'protocol').pack(side='left', padx=(16,4))
+        self.family_options = {'ipv4': self.t('ipv4'), 'ipv6': self.t('ipv6'), 'all': self.t('all')}
+        self.family_id = 'ipv4'
+        self.family = tk.StringVar(value=self.family_options[self.family_id])
+        self.family_box = ttk.Combobox(row, textvariable=self.family, values=list(self.family_options.values()), state='readonly', width=9)
+        self.family_box.pack(side='left')
+        self.family_box.bind('<<ComboboxSelected>>', self.on_family_selected)
         self.rounds = tk.StringVar(value='2')
-        ttk.Label(row, text='轮数').pack(side='left', padx=(12,4))
+        self.label(row, 'rounds').pack(side='left', padx=(12,4))
         ttk.Spinbox(row, from_=1, to=5, textvariable=self.rounds, width=3).pack(side='left')
-        self.button(row, '开始优选', self.start, 'Accent.TButton')
-        self.stop_button = ttk.Button(row, text='停止', command=self.cancel.set, state='disabled')
+        self.start_button = self.button(row, 'start', self.start, 'Accent.TButton')
+        self.stop_button = ttk.Button(row, text=self.t('stop'), command=self.cancel.set, state='disabled')
+        self.text_widgets['stop'] = self.stop_button
         self.stop_button.pack(side='left', padx=4)
         config = ttk.Frame(outer)
         config.pack(fill='x', pady=(10,4))
-        ttk.Label(config, text='测试域名（逗号分隔）').pack(side='left')
+        self.label(config, 'test_domains').pack(side='left')
         self.domains = tk.StringVar(value='example.com,www.microsoft.com,www.baidu.com')
         ttk.Entry(config, textvariable=self.domains).pack(side='left', fill='x', expand=True, padx=8)
-        self.status = tk.StringVar(value='先获取地区候选列表，或添加自定义公网 DNS。测速不会修改系统配置。')
+        self.status_state = ('initial_status', {})
+        self.status = tk.StringVar(value=self.t('initial_status'))
         ttk.Label(outer, textvariable=self.status, wraplength=1020).pack(anchor='w', pady=10)
         self.progress = ttk.Progressbar(outer, mode='determinate')
         self.progress.pack(fill='x', pady=(0,10))
         table_frame = ttk.Frame(outer)
         table_frame.pack(fill='both', expand=True)
         columns = ('ip','country','provider','rate','latency','jitter','error')
+        self.column_keys = dict(zip(columns, ('column_ip','column_country','column_provider','column_rate','column_latency','column_jitter','column_error')))
         self.table = ttk.Treeview(table_frame, columns=columns, show='headings', selectmode='extended')
-        for name, text, width in zip(columns, ['DNS 地址','地区','运营商 / ASN','成功率','中位延迟','波动 σ','最近错误'], [170,100,215,90,95,85,170]):
-            self.table.heading(name, text=text)
+        for name, width in zip(columns, [170,100,215,90,95,85,170]):
+            self.table.heading(name, text=self.t(self.column_keys[name]))
             self.table.column(name, width=width, minwidth=65)
         scroll = ttk.Scrollbar(table_frame, orient='vertical', command=self.table.yview)
         self.table.configure(yscrollcommand=scroll.set)
         self.table.pack(side='left', fill='both', expand=True)
         scroll.pack(side='right', fill='y')
         self.dns_fields = [tk.StringVar() for _ in range(4)]
+        self.dns_label_keys = ('ipv4_preferred','ipv4_alternate','ipv6_preferred','ipv6_alternate')
+        self.dns_labels = []
         dns_frame = ttk.Frame(outer)
         dns_frame.pack(fill='x', pady=(10, 0))
-        for row_index, family in enumerate(('IPv4', 'IPv6')):
-            for column, role in enumerate(('首选 DNS', '备用 DNS')):
-                ttk.Label(dns_frame, text=f'{family} {role}').grid(row=row_index, column=column * 2, padx=(0, 8), pady=3)
+        for row_index in range(2):
+            for column in range(2):
+                key = self.dns_label_keys[row_index * 2 + column]
+                label = ttk.Label(dns_frame, text=self.t(key))
+                label.grid(row=row_index, column=column * 2, padx=(0, 8), pady=3)
+                self.dns_labels.append((key, label))
                 entry = ttk.Entry(dns_frame, textvariable=self.dns_fields[row_index * 2 + column], width=30)
                 entry.grid(row=row_index, column=column * 2 + 1, sticky='ew', padx=(0, 16), pady=3)
                 self.controls.append(entry)
@@ -88,26 +119,89 @@ class App:
         dns_frame.columnconfigure(3, weight=1)
         action = ttk.Frame(outer)
         action.pack(fill='x', pady=12)
-        self.button(action, '复制选中 IP', self.copy)
-        self.button(action, '导出 CSV', self.export)
-        ttk.Label(action, text='网卡').pack(side='left', padx=(12,4))
+        self.button(action, 'copy', self.copy)
+        self.button(action, 'export', self.export)
+        self.label(action, 'adapter').pack(side='left', padx=(12,4))
         self.adapter = tk.StringVar()
         self.adapter_box = ttk.Combobox(action, textvariable=self.adapter, state='readonly', width=18)
         self.adapter_box.pack(side='left')
-        self.button(action, '刷新', self.load_adapters)
-        self.button(action, '填入选中 DNS', self.fill_dns)
-        self.button(action, '应用 DNS', lambda: self.change('apply'))
-        self.button(action, '恢复原配置', lambda: self.change('restore'))
-        ttk.Label(outer, text='排序：成功率优先 → 中位延迟 → 波动。选中结果后填入对应协议的首选/备用；可手动修改。备用可留空，整组留空则保持原配置。', wraplength=1000).pack(anchor='w')
-        ttk.Label(outer, text='数据来源 publicdnsserver.com · 本机 UDP/TCP DNS 查询 · 响应有效不代表无污染或隐私可信', foreground='#64748b').pack(anchor='w', pady=(5,0))
-        root.after(100, self.poll)
+        self.button(action, 'refresh', self.load_adapters)
+        self.button(action, 'fill_dns', self.fill_dns)
+        self.button(action, 'apply_dns', lambda: self.change('apply'))
+        self.button(action, 'restore_dns', lambda: self.change('restore'))
+        self.label(outer, 'sort_help', wraplength=1000).pack(anchor='w')
+        self.label(outer, 'source_notice', foreground='#64748b').pack(anchor='w', pady=(5,0))
+        self.poll_after_id = root.after(100, self.poll)
         root.protocol('WM_DELETE_WINDOW', self.close)
 
-    def button(self, frame, text, command, style='TButton'):
-        button = ttk.Button(frame, text=text, command=command, style=style)
+    def t(self, key, **values):
+        return format_message(self.language, key, **values)
+
+    def label(self, frame, key, **kwargs):
+        widget = ttk.Label(frame, text=self.t(key), **kwargs)
+        self.text_widgets[key] = widget
+        return widget
+
+    def button(self, frame, key, command, style='TButton'):
+        button = ttk.Button(frame, text=self.t(key), command=command, style=style)
         button.pack(side='left', padx=4)
         self.controls.append(button)
+        self.text_widgets[key] = button
         return button
+
+    def on_language_selected(self, _event=None):
+        language = next((code for code, label in SUPPORTED_LANGUAGES.items() if label == self.language_var.get()), None)
+        if language:
+            self.set_language(language)
+
+    def on_region_selected(self, _event=None):
+        self.region_id = next((key for key, label in self.region_labels.items() if label == self.region.get()), self.region_id)
+
+    def on_family_selected(self, _event=None):
+        self.family_id = next((key for key, label in self.family_options.items() if label == self.family.get()), self.family_id)
+
+    def set_language(self, language):
+        if language not in SUPPORTED_LANGUAGES:
+            return
+        current_region = self.region_id
+        try:
+            save_language(self.preference_path, language)
+        except OSError as exc:
+            messagebox.showerror(self.t('operation_failed'), self.t('language_save_failed', detail=str(exc)))
+        self.language = language
+        self.root.title(self.t('app_title'))
+        self.language_var.set(SUPPORTED_LANGUAGES[language])
+        self.region_labels = region_labels(language)
+        self.region_box.configure(values=list(self.region_labels.values()))
+        self.region.set(self.region_labels.get(current_region, next(iter(self.region_labels.values()))))
+        self.region_id = current_region if current_region in self.region_labels else next(iter(self.region_labels))
+        self.family_options = {'ipv4': self.t('ipv4'), 'ipv6': self.t('ipv6'), 'all': self.t('all')}
+        self.family_box.configure(values=list(self.family_options.values()))
+        self.family.set(self.family_options[self.family_id])
+        for key, widget in self.text_widgets.items():
+            widget.configure(text=self.t(key))
+        for key, widget in self.dns_labels:
+            widget.configure(text=self.t(key))
+        for column, key in self.column_keys.items():
+            self.table.heading(column, text=self.t(key))
+        status_key, status_values = self.status_state
+        if status_key == 'backend':
+            self.status.set(localize_error(self.language, status_values['raw']))
+        else:
+            self.status.set(self.t(status_key, **status_values))
+        font = 'Segoe UI' if language == 'en' else 'Microsoft YaHei UI'
+        self.style.configure('.', font=(font, 10))
+        self.style.configure('Title.TLabel', font=(font, 24, 'bold'), foreground='#14355a')
+        self.style.configure('Treeview.Heading', padding=8, font=(font, 10, 'bold'))
+        self.render()
+
+    def set_status(self, key, **values):
+        self.status_state = (key, values)
+        self.status.set(self.t(key, **values))
+
+    def set_backend_status(self, raw):
+        self.status_state = ('backend', {'raw': str(raw)})
+        self.status.set(localize_error(self.language, raw))
 
     def set_busy(self, value):
         self.busy = value
@@ -129,57 +223,64 @@ class App:
             while True:
                 kind, data = self.events.get_nowait()
                 if kind == 'servers':
-                    self.servers, description = data
+                    self.servers, summary = data
                     self.results = []
                     self.render()
-                    self.status.set(f'{len(self.servers)} 个候选 · {description}')
+                    detail = self.t('fetch_live', url=summary.url) if summary.mode == 'live' else self.t('fetch_cache', hours=summary.age_hours, detail=localize_error(self.language, summary.error))
+                    self.set_status('candidates_loaded', count=len(self.servers), detail=detail)
                 elif kind == 'result':
                     self.results.append(data)
                     self.progress['value'] = len(self.results)
-                    self.status.set(f'已完成 {len(self.results)} / {int(self.progress["maximum"])} 个服务器')
+                    self.set_status('progress', done=len(self.results), total=int(self.progress['maximum']))
                     self.render()
-                elif kind == 'status': self.status.set(data)
+                elif kind == 'status':
+                    if isinstance(data, tuple) and data[0] == 'backend':
+                        self.set_backend_status(data[1])
+                    else:
+                        self.set_status(data)
                 elif kind == 'adapters':
                     self.adapter_map = {f'{a["Name"]} (#{a["ifIndex"]})': a for a in data}
                     self.adapter_box['values'] = list(self.adapter_map)
                     self.adapter.set(next(iter(self.adapter_map), ''))
                 elif kind == 'error':
-                    self.status.set(data)
-                    messagebox.showerror('操作失败', data)
+                    detail = localize_error(self.language, data)
+                    self.set_backend_status(data)
+                    messagebox.showerror(self.t('operation_failed'), detail)
                 elif kind == 'done': self.set_busy(False)
         except queue.Empty: pass
-        self.root.after(100, self.poll)
+        self.poll_after_id = self.root.after(100, self.poll)
 
     def fetch(self):
-        region = self.region.get()
-        self.status.set('正在获取 HTTPS 候选列表…')
-        self.background(lambda: self.events.put(('servers', fetch_servers(region, self.cache))))
+        self.on_region_selected()
+        source_region = REGIONS[self.region_id]['source_key']
+        self.set_status('fetching')
+        self.background(lambda: self.events.put(('servers', fetch_servers(source_region, self.cache))))
 
     def add(self):
-        text = simpledialog.askstring('添加公网 DNS', '输入 IPv4 / IPv6 地址，多个地址用逗号或空格分隔：')
+        text = simpledialog.askstring(self.t('add_dialog_title'), self.t('add_dialog_prompt'))
         if not text: return
         try:
             values = [str(ipaddress.ip_address(x)) for x in text.replace(',', ' ').split()]
-            if any(not ipaddress.ip_address(x).is_global for x in values): raise ValueError('只接受公网 IP')
+            if any(not ipaddress.ip_address(x).is_global for x in values): raise ValueError(self.t('public_ip_only'))
             known = {s.ip for s in self.servers}
             self.servers.extend(Server(ip) for ip in dict.fromkeys(values) if ip not in known)
             self.render()
-            self.status.set(f'{len(self.servers)} 个候选，等待测速')
-        except ValueError as exc: messagebox.showerror('无效地址', str(exc))
+            self.set_status('waiting_measurement', count=len(self.servers))
+        except ValueError as exc: messagebox.showerror(self.t('invalid_address'), localize_error(self.language, exc))
 
     def start(self):
         try:
             rounds = int(self.rounds.get())
-            if not 1 <= rounds <= 5: raise ValueError('轮数必须为 1–5')
+            if not 1 <= rounds <= 5: raise ValueError(self.t('invalid_rounds', value=rounds))
             domains = [x.strip() for x in self.domains.get().replace('，', ',').split(',') if x.strip()]
             import dns.name
-            if not 1 <= len(domains) <= 10: raise ValueError('请输入 1–10 个域名')
+            if not 1 <= len(domains) <= 10: raise ValueError(self.t('invalid_domains'))
             for domain in domains: dns.name.from_text(domain).to_wire()
-            family = self.family.get()
-            candidates = [s for s in self.servers if family == '全部' or ipaddress.ip_address(s.ip).version == (4 if family == 'IPv4' else 6)]
-            if not candidates: raise ValueError('没有符合协议的候选，请获取列表或添加 IP')
+            self.on_family_selected()
+            candidates = [s for s in self.servers if self.family_id == 'all' or ipaddress.ip_address(s.ip).version == (4 if self.family_id == 'ipv4' else 6)]
+            if not candidates: raise ValueError(self.t('no_candidates'))
         except Exception as exc:
-            messagebox.showerror('测试参数', str(exc))
+            messagebox.showerror(self.t('test_parameters'), localize_error(self.language, exc))
             return
         self.results = []
         self.render()
@@ -190,7 +291,7 @@ class App:
                 for future in as_completed(futures):
                     result = future.result()
                     if result.attempts: self.events.put(('result', result))
-            self.events.put(('status', '已停止；部分测量不宜与完整测量直接比较。' if self.cancel.is_set() else '优选完成。选择结果可复制、导出或设置 DNS。'))
+            self.events.put(('status', 'stopped' if self.cancel.is_set() else 'completed'))
         self.background(job)
 
     def render(self):
@@ -201,9 +302,9 @@ class App:
         def fmt(value): return f'{value:.1f} ms' if math.isfinite(value) else '—'
         for r in sorted(self.results, key=rank_key):
             s = by_ip.get(r.ip, Server(r.ip))
-            self.table.insert('', 'end', iid=r.ip, values=(r.ip,s.country,s.provider,f'{r.successes}/{r.attempts} ({r.ratio:.0%})',fmt(r.median_ms),fmt(r.jitter_ms),r.error))
+            self.table.insert('', 'end', iid=r.ip, values=(r.ip,localize_source_text(self.language, s.country),s.provider,f'{r.successes}/{r.attempts} ({r.ratio:.0%})',fmt(r.median_ms),fmt(r.jitter_ms),localize_error(self.language, r.error)))
         for s in self.servers:
-            if s.ip not in measured: self.table.insert('', 'end', iid=s.ip, values=(s.ip,s.country,s.provider,'待测','—','—',''))
+            if s.ip not in measured: self.table.insert('', 'end', iid=s.ip, values=(s.ip,localize_source_text(self.language, s.country),s.provider,self.t('pending'),'—','—',''))
         for ip in selected:
             if self.table.exists(ip): self.table.selection_add(ip)
 
@@ -216,27 +317,27 @@ class App:
         if ips:
             self.root.clipboard_clear()
             self.root.clipboard_append('\n'.join(ips))
-            self.status.set('选中 IP 已复制')
+            self.set_status('copied')
 
     def write_csv(self, path):
         by_ip = {s.ip: s for s in self.servers}
         with open(path, 'w', newline='', encoding='utf-8-sig') as handle:
             writer = csv.writer(handle)
-            writer.writerow(['DNS','地区','运营商','成功次数','请求次数','成功率','中位延迟ms','波动ms','最近错误'])
+            writer.writerow([self.t(key) for key in ('csv_ip','csv_region','csv_provider','csv_successes','csv_attempts','csv_rate','csv_median','csv_jitter','csv_error')])
             for r in sorted(self.results, key=rank_key):
                 s = by_ip.get(r.ip, Server(r.ip))
                 # Prevent spreadsheet formulas from remote metadata.
                 safe = lambda value: "'" + value if value.startswith(('=','+','-','@')) else value
-                writer.writerow([r.ip,safe(s.country),safe(s.provider),r.successes,r.attempts,r.ratio,r.median_ms if r.samples else '',r.jitter_ms if r.samples else '',safe(r.error)])
+                writer.writerow([r.ip,safe(s.country),safe(s.provider),r.successes,r.attempts,r.ratio,r.median_ms if r.samples else '',r.jitter_ms if r.samples else '',safe(localize_error(self.language, r.error))])
 
     def export(self):
         if not self.results:
-            messagebox.showinfo('导出', '请先执行测速')
+            messagebox.showinfo(self.t('export_title'), self.t('run_measurement_first'))
             return
         path = filedialog.asksaveasfilename(defaultextension='.csv', initialfile='dns-scout-results.csv', filetypes=[('CSV','*.csv')])
         if path:
             try: self.write_csv(path)
-            except OSError as exc: messagebox.showerror('导出失败', str(exc))
+            except OSError as exc: messagebox.showerror(self.t('export_failed'), str(exc))
 
     def load_adapters(self):
         self.background(lambda: self.events.put(('adapters', windows.adapters())))
@@ -246,7 +347,7 @@ class App:
         for ip in self.selected_ips():
             groups[ipaddress.ip_address(ip).version].append(ip)
         if not any(groups.values()) or any(len(values) > 2 for values in groups.values()):
-            messagebox.showerror('选择 DNS', '请选中 DNS，每种协议最多两个')
+            messagebox.showerror(self.t('select_dns'), self.t('select_dns_limit'))
             return
         for family, offset in ((4, 0), (6, 2)):
             if groups[family]:
@@ -256,21 +357,36 @@ class App:
     def change(self, action):
         adapter = self.adapter_map.get(self.adapter.get())
         if not adapter:
-            messagebox.showinfo('选择网卡', '请先刷新并选择要操作的网卡')
+            messagebox.showinfo(self.t('select_adapter'), self.t('refresh_select_adapter'))
             return
         index = adapter['ifIndex']
         try:
             ips = windows.dns_slots(*(field.get() for field in self.dns_fields)) if action == 'apply' else []
             windows.validate_request(action, index, ips)
         except ValueError as exc:
-            messagebox.showerror('选择 DNS', str(exc))
+            messagebox.showerror(self.t('select_dns'), localize_error(self.language, exc))
             return
-        text = ('将设置 DNS：\n' + '\n'.join(f"IPv{family} {role}：{ip}" for family in (4, 6) for role, ip in zip(('首选', '备用'), [ip for ip in ips if ipaddress.ip_address(ip).version == family])) + '\n未填写的协议保持原配置。首次修改前会备份该网卡的原配置。') if action == 'apply' else '将恢复这张网卡首次修改前的 IPv4 / IPv6 DNS 配置。'
-        if not messagebox.askyesno('确认网卡配置', f'网卡：{self.adapter.get()}\n{text}\n需要接受 Windows 管理员授权。是否继续？'): return
-        self.background(lambda: self.events.put(('status', windows.configure(action, index, ips, adapter['InterfaceGuid']))))
+        lines = '\n'.join(
+            f"IPv{family} {self.t(role)}: {ip}"
+            for family in (4, 6)
+            for role, ip in zip(
+                ('preferred', 'alternate'),
+                [address for address in ips if ipaddress.ip_address(address).version == family],
+            )
+        )
+        text = self.t('apply_dns_confirm', lines=lines) if action == 'apply' else self.t('restore_dns_confirm')
+        confirm = f"{self.t('adapter_line', adapter=self.adapter.get())}\n{text}\n{self.t('admin_prompt')}"
+        if not messagebox.askyesno(self.t('confirm_adapter'), confirm): return
+        self.background(lambda: self.events.put(('status', ('backend', windows.configure(action, index, ips, adapter['InterfaceGuid'])))))
 
     def close(self):
         self.cancel.set()
+        if self.poll_after_id is not None:
+            try:
+                self.root.after_cancel(self.poll_after_id)
+            except tk.TclError:
+                pass
+            self.poll_after_id = None
         self.root.destroy()
 
 def main():

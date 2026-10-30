@@ -1,12 +1,48 @@
+import io
 import socket
 import threading
 import unittest
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+from urllib.error import URLError
 import dns.message
 import dns.rrset
-from scout.source import parse_servers
+from scout.source import parse_servers, fetch_servers, BASE, PAGES
+from scout.i18n import REGIONS
 from scout.benchmark import measure, Result, rank_key
 
 class CoreTests(unittest.TestCase):
+    def test_localized_region_ids_keep_existing_source_slugs(self):
+        expected = {
+            'global': '', 'fastest': 'fastest/', 'china': 'china/',
+            'hongkong': 'hongkong/', 'taiwan': 'taiwan/', 'japan': 'japan/',
+            'singapore': 'singapore/', 'unitedstates': 'unitedstates/', 'germany': 'germany/',
+        }
+        self.assertEqual({key: PAGES[region['source_key']] for key, region in REGIONS.items()}, expected)
+
+    def test_fetch_summary_keeps_region_url_and_cache_key(self):
+        html = '<table><tr><td>1</td><td><span>1.1.1.1</span><br>Cloudflare</td><td><a>Australia</a></td><td>100%</td></tr></table>'
+        with tempfile.TemporaryDirectory() as temp:
+            with patch('scout.source.urlopen', return_value=io.BytesIO(html.encode('utf-8'))):
+                servers, summary = fetch_servers('中国', temp)
+            self.assertEqual(servers[0].ip, '1.1.1.1')
+            self.assertEqual(summary.mode, 'live')
+            self.assertEqual(summary.url, BASE + 'china/')
+            self.assertTrue((Path(temp) / 'list-china.json').exists())
+
+    def test_fetch_summary_reports_cache_age_and_error(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'list-china.json'
+            path.write_text(json.dumps({'time': 1000, 'servers': [{'ip': '1.1.1.1', 'country': 'Australia', 'provider': 'Cloudflare'}]}), encoding='utf-8')
+            with patch('scout.source.urlopen', side_effect=URLError('offline')), patch('scout.source.time.time', return_value=4600):
+                servers, summary = fetch_servers('中国', temp)
+            self.assertEqual(servers[0].country, 'Australia')
+            self.assertEqual(summary.mode, 'cache')
+            self.assertEqual(summary.age_hours, 1.0)
+            self.assertIn('offline', summary.error)
+
     def test_source_parses_real_table_shape_and_deduplicates(self):
         row = '<tr><td>1</td><td><span>1.1.1.1</span><br>AS13335 Cloudflare</td><td><a>Australia</a><br>Sydney</td><td>100 % - 4 ms</td></tr>'
         items = parse_servers('<table>'+row+row+'</table>')
