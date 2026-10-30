@@ -85,7 +85,7 @@
 - [x] **Step 3: Build** with Windows Python/PyInstaller 6.19.0 under Wine, including `scout/configure.ps1`; confirm a PE32+ x86-64 executable is produced.
 - [x] **Step 4: Smoke test** `DNSScout.exe --smoke-test` under Wine and verify it exits successfully; calculate SHA256 and create the distributable ZIP with README and LICENSE.
 - [x] **Step 5: Record** the test, build, smoke, hash, and Windows 11 limitation evidence in `docs/TESTING.md`.
-- [ ] **Step 6: Publish** `DNSScout.exe`, ZIP, and SHA256 file as GitHub pre-release `v0.1.0-preview.3`; verify the release page and uploaded asset names.
+- [x] **Step 6: Publish** `DNSScout.exe`, ZIP, and SHA256 file as GitHub pre-release `v0.1.0-preview.3`; verify the release page and uploaded asset names.
 
 ---
 

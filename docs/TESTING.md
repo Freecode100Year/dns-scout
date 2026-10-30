@@ -49,3 +49,4 @@ GitHub 连接器也返回 403。自动构建模板已保存为 docs/windows-buil
 - `dist/DNSScout-win11-x64.zip` 包含 EXE、README、LICENSE 和 SHA256SUMS。
 
 Wine 构建与冒烟检查不能代替真实 Windows 11 x64 上的 UAC、网卡 DNS 修改/恢复验收。EXE 未签名；SmartScreen 信誉未验证。
+GitHub 预发布及资产已核验：<https://github.com/Freecode100Year/dns-scout/releases/tag/v0.1.0-preview.3>。
