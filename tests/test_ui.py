@@ -59,7 +59,7 @@ class UITests(unittest.TestCase):
                 with patch('scout.app.settings_path', return_value=os.path.join(temp, 'settings.json')):
                     app = App(root)
                     app.servers = [Server('1.1.1.1', '=Australia', '+Cloudflare')]
-                    app.results = [Result('1.1.1.1', [10,20,30], 3)]
+                    app.results = [Result('1.1.1.1', [10,20,30], 3, '已取消')]
                     app.set_language('zh-CN')
                     chinese_path = os.path.join(temp, 'zh.csv')
                     app.write_csv(chinese_path)
@@ -73,6 +73,7 @@ class UITests(unittest.TestCase):
                 self.assertEqual(chinese_rows[0][:3], ['DNS', '地区', '运营商'])
                 self.assertEqual(english_rows[0][:3], ['DNS address', 'Region', 'Provider'])
                 self.assertEqual(english_rows[1][1:3], ["'=Australia", "'+Cloudflare"])
+                self.assertEqual(english_rows[1][8], '已取消')
         finally:
             app.close() if app else root.destroy()
 

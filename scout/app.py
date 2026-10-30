@@ -328,7 +328,7 @@ class App:
                 s = by_ip.get(r.ip, Server(r.ip))
                 # Prevent spreadsheet formulas from remote metadata.
                 safe = lambda value: "'" + value if value.startswith(('=','+','-','@')) else value
-                writer.writerow([r.ip,safe(s.country),safe(s.provider),r.successes,r.attempts,r.ratio,r.median_ms if r.samples else '',r.jitter_ms if r.samples else '',safe(localize_error(self.language, r.error))])
+                writer.writerow([r.ip,safe(s.country),safe(s.provider),r.successes,r.attempts,r.ratio,r.median_ms if r.samples else '',r.jitter_ms if r.samples else '',safe(r.error)])
 
     def export(self):
         if not self.results:

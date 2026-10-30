@@ -43,9 +43,9 @@ GitHub 连接器也返回 403。自动构建模板已保存为 docs/windows-buil
 
 - Wine Windows Python 3.12.10 AMD64：完整 unittest 32/32 通过，包含双语目录、语言保存、UI 即时切换、CSV 标题、地区 slug、DNS 源解析和配置输入校验。
 - PowerShell 7.6.9 Linux：`tests/test_configure.ps1` 隔离 API 回归通过；`scout/configure.ps1` 语法解析通过。测试临时目录放在仓库磁盘，避开已满的 `/tmp`；没有修改真实网卡。
-- PyInstaller 6.19.0 在 Wine 下构建 `dist/DNSScout.exe`，确认 PE32+ x86-64 Windows GUI，文件大小 12,782,242 bytes。
+- PyInstaller 6.19.0 在 Wine 下构建 `dist/DNSScout.exe`，确认 PE32+ x86-64 Windows GUI，文件大小 12,781,978 bytes。
 - `DNSScout.exe --smoke-test` 在 Wine 下退出码 0；校验窗口启动、业务模块导入、结果行渲染和正常退出。
-- `dist/SHA256SUMS.txt`：`7efdf5bcf2c17a3c53b92cac8d6181e707b654cd44f6b7b9e5b79754b6b930fb  DNSScout.exe`；`sha256sum -c` 通过。
+- `dist/SHA256SUMS.txt`：`3b26de2d176b4b099616a286248255924f3c868efb1f78bc14d2ded2902f0db8  DNSScout.exe`；`sha256sum -c` 通过。
 - `dist/DNSScout-win11-x64.zip` 包含 EXE、README、LICENSE 和 SHA256SUMS。
 
 Wine 构建与冒烟检查不能代替真实 Windows 11 x64 上的 UAC、网卡 DNS 修改/恢复验收。EXE 未签名；SmartScreen 信誉未验证。
