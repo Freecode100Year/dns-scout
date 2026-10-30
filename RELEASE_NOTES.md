@@ -1,13 +1,26 @@
-DNS Scout v0.1.0 Preview 2 · Windows x64 便携版
+# DNS Scout v0.1.0-preview.3 · Windows x64 portable
 
-- 新增 IPv4 和 IPv6 各自的首选 DNS、备用 DNS 输入框，支持手动填写和从测速结果填入。
-- 一次应用两种协议，分别校验主备顺序；未填写的协议保持原配置。
-- 校验仅填写备用、重复 DNS、地址协议不匹配等输入，保留首次备份与恢复功能。
+## 简体中文
 
-下载 DNSScout.exe 即可运行，无需安装 Python；SHA256SUMS.txt 可核对完整性。
+- 新增简体中文 / English 双语界面，可随时切换并保存选择；首次启动跟随 Windows 显示语言。
+- 地区、状态、校验提示、网卡确认框、表格与 CSV 标题随界面语言切换。
+- 保持当前测速结果、输入内容和地区选择；保留原有 DNS 测量与系统配置行为。
+- 关闭窗口时取消待处理的 UI 定时回调，避免关闭过程产生 Tcl 错误。
 
-验证：Linux 与 Windows Python（Wine）各 16 项测试通过，PowerShell 配置隔离回归通过。
-构建日志随发布提供。
+下载 `DNSScout.exe` 即可运行，无需安装 Python；使用 `SHA256SUMS.txt` 核对文件。
 
-本版由 Windows Python 3.12 + PyInstaller 在 Wine 中构建；真正 Windows 11 上的
-UAC/网卡修改恢复尚待实机验收。程序未签名。
+## English
+
+- Added Simplified Chinese and English UI, with live switching and a saved language preference. The first launch follows the Windows display language.
+- Region names, status messages, validation prompts, adapter confirmations, table headings, and CSV headers follow the selected language.
+- Switching languages preserves current results, inputs, and region selection. DNS measurement and system configuration behavior remain unchanged.
+- Closing the window now cancels its pending UI timer callback.
+
+Download `DNSScout.exe` and run it without installing Python. Verify the file with `SHA256SUMS.txt`.
+
+## Verification / 验证
+
+- Python unit, UI, localization, and source-fetch tests run under Windows Python 3.12 in Wine.
+- PowerShell configuration tests run with isolated Windows API mocks; no real network adapter is modified by the test suite.
+- The release executable is built with PyInstaller 6.19.0 under Wine and smoke-tested with `--smoke-test`.
+- This compatibility environment does not replace Windows 11 real-device testing of UAC and DNS adapter changes. The executable is unsigned.

@@ -69,9 +69,9 @@
 - Modify: `README.md`
 - Modify: `RELEASE_NOTES.md`
 
-- [ ] **Step 1: Document** the language selector, initial system-language choice, preference location, and portable EXE steps in Chinese and English.
-- [ ] **Step 2: Update** preview release notes to `v0.1.0-preview.3`, describing bilingual UI and verification limits.
-- [ ] **Step 3: Review** docs against the implemented control labels and actual build output names.
+- [x] **Step 1: Document** the language selector, initial system-language choice, preference location, and portable EXE steps in Chinese and English.
+- [x] **Step 2: Update** preview release notes to `v0.1.0-preview.3`, describing bilingual UI and verification limits.
+- [x] **Step 3: Review** docs against the implemented control labels and actual build output names.
 
 ### Task 4: Full verification, Windows EXE build, and publication
 

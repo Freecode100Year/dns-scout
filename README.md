@@ -1,7 +1,22 @@
-# DNS Scout · Windows DNS 优选
+# DNS Scout · DNS 优选 / DNS Optimizer
 
-面向 **Windows 11 x64** 的中文免安装桌面工具。候选列表来自
+面向 **Windows 11 x64** 的简体中文 / English 免安装桌面工具。候选列表来自
 [publicdnsserver.com](https://publicdnsserver.com/)，排名由用户本机重新测量。
+
+## English quick start
+
+DNS Scout is a portable Windows x64 app with Simplified Chinese and English UI. On first launch it follows the Windows display language; use the language selector in the top-right corner to switch at any time. Your choice is saved in `%LOCALAPPDATA%\DNSScout\settings.json`.
+
+1. Choose a region and select **Get list**, or add public IPv4/IPv6 DNS addresses.
+2. Choose a protocol, number of rounds, and test domains, then select **Find best DNS**. Results are ranked by success rate, median latency, and jitter.
+3. To change system DNS, refresh and select a network adapter. Fill the preferred and alternate IPv4/IPv6 fields, or select results and choose **Fill selected DNS**.
+4. Select **Apply DNS** and confirm the adapter. Windows administrator approval is required. The original configuration is backed up before the first change; **Restore previous settings** restores and verifies it.
+
+Testing DNS never changes system settings. DNS configuration requires explicit confirmation. See the Chinese guide below for measurement details, limitations, and build instructions.
+
+## 中文快速开始
+
+首次启动按 Windows 显示语言选择界面语言，可在窗口右上角随时切换。选择保存在 `%LOCALAPPDATA%\DNSScout\settings.json`。
 
 ![DNS Scout 界面](docs/preview.png)
 
@@ -58,8 +73,7 @@ Windows 打包：
     python -m PyInstaller --noconfirm --clean --onefile --windowed --name DNSScout --add-data "scout/configure.ps1;scout" main.py
 
 Windows 用户也可运行 scripts/build-windows.ps1，一次完成测试、打包、冒烟检查和 SHA256。
-GitHub Actions 模板见 docs/windows-build.yml。当前 GitHub 凭据缺少 workflow 权限，
-自动构建尚未启用；授权后可将模板放到 .github/workflows/build.yml。
+GitHub Actions 构建流程模板见 docs/windows-build.yml；仓库尚未启用自动构建，可运行 scripts/build-windows.ps1 在 Windows 上完成构建。
 当前发布构建的环境与实际验证记录见 docs/TESTING.md。
 Windows 11 实机 UAC/网卡修改恢复仍需验收。
 配置使用 [微软 DNSClient cmdlet](https://learn.microsoft.com/en-us/powershell/module/dnsclient/set-dnsclientserveraddress?view=win10-ps)；
