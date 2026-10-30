@@ -76,14 +76,16 @@
 ### Task 4: Full verification, Windows EXE build, and publication
 
 **Files:**
+- Modify: `docs/TESTING.md`
 - Build output: `dist/DNSScout.exe`, `dist/DNSScout-win11-x64.zip`, `dist/SHA256SUMS.txt`
 - Release: GitHub `v0.1.0-preview.3`
 
-- [ ] **Step 1: Run** `python -m unittest discover -s tests -v`; confirm all tests pass (use a display server for Tk tests).
-- [ ] **Step 2: Run** the isolated PowerShell DNS configuration regression and syntax parse from `scripts/build-windows.ps1` / `docs/windows-build.yml`.
-- [ ] **Step 3: Build** with Windows Python/PyInstaller 6.19.0 under Wine, including `scout/configure.ps1`; confirm a PE32+ x86-64 executable is produced.
-- [ ] **Step 4: Smoke test** `DNSScout.exe --smoke-test` under Wine and verify it exits successfully; calculate SHA256 and create the distributable ZIP with README and LICENSE.
-- [ ] **Step 5: Publish** `DNSScout.exe`, ZIP, and SHA256 file as GitHub pre-release `v0.1.0-preview.3`; verify the release page and uploaded asset names.
+- [x] **Step 1: Run** `python -m unittest discover -s tests -v`; confirm all tests pass (use a display server for Tk tests): 32/32 passed under Windows Python 3.12 in Wine.
+- [x] **Step 2: Run** the isolated PowerShell DNS configuration regression and syntax parse from `scripts/build-windows.ps1` / `docs/windows-build.yml`; both passed under PowerShell 7.6.9.
+- [x] **Step 3: Build** with Windows Python/PyInstaller 6.19.0 under Wine, including `scout/configure.ps1`; confirm a PE32+ x86-64 executable is produced.
+- [x] **Step 4: Smoke test** `DNSScout.exe --smoke-test` under Wine and verify it exits successfully; calculate SHA256 and create the distributable ZIP with README and LICENSE.
+- [x] **Step 5: Record** the test, build, smoke, hash, and Windows 11 limitation evidence in `docs/TESTING.md`.
+- [ ] **Step 6: Publish** `DNSScout.exe`, ZIP, and SHA256 file as GitHub pre-release `v0.1.0-preview.3`; verify the release page and uploaded asset names.
 
 ---
 
